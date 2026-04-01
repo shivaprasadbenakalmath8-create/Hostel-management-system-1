@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Dashboard - Hostel Management System</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <i class="fas fa-users" style="font-size: 32px; margin-bottom: 10px;"></i>
+                <h3>Staff Portal</h3>
+            </div>
+            <ul class="sidebar-menu">
+                <li class="active"><a href="#dashboard" onclick="loadPage('dashboard')"><i class="fas fa-home"></i> Dashboard</a></li>
+                <li><a href="#tasks" onclick="loadPage('tasks')"><i class="fas fa-tasks"></i> My Tasks</a></li>
+                <li><a href="#attendance" onclick="loadPage('attendance')"><i class="fas fa-calendar-check"></i> Mess Attendance</a></li>
+                <li><a href="#inventory" onclick="loadPage('inventory')"><i class="fas fa-boxes"></i> Inventory</a></li>
+                <li><a href="#complaints" onclick="loadPage('complaints')"><i class="fas fa-exclamation-triangle"></i> Complaints</a></li>
+                <li><a href="#students" onclick="loadPage('students')"><i class="fas fa-user-graduate"></i> Students</a></li>
+                <li><a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+            </ul>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="top-nav">
+                <div class="menu-toggle" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </div>
+                <div class="user-info">
+                    <span>Welcome, <span id="userName"></span></span>
+                    <div class="user-avatar" id="userAvatar"></div>
+                </div>
+            </div>
+
+            <div id="pageContent">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logout Modal -->
+    <div id="logoutModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Confirm Logout</h3>
+                <span class="close" onclick="closeModal('logoutModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to logout?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('logoutModal')">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmLogout()">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // Check authentication
+    async function checkAuth() {
+        try {
+            const response = await fetch('api/dashboard.php');
+            const data = await response.json();
+            
+            if (!data.success || data.data.role !== 'staff') {
+                window.location.href = 'index.html';
+            } else {
+                document.getElementById('userName').textContent = data.data.user;
+                document.getElementById('userAvatar').textContent = data.data.user.charAt(0);
+                loadPage('dashboard');
+            }
+        } catch (error) {
+            window.location.href = 'index.html';
+        }
+    }
+
+    // Load page content
+    async function loadPage(page) {
+        const content = document.getElementById('pageContent');
+        content.innerHTML = '<div class="spinner"></div>';
+        
+        // Update active menu
+        document.querySelectorAll('.sidebar-menu li').forEach(li => li.classList.remove('active'));
+        event?.target?.closest('li')?.classList.add('active');
+        
+        switch(page) {
+            case 'dashboard':
+                await loadDashboard();
+                break;
+            case 'tasks':
+                await loadTasks();
+                break;
+            case 'attendance':
+                await loadAttendance();
+                break;
+            case 'inventory':
+                await loadInventory();
+                break;
+            case 'complaints':
+                await loadComplaints();
+                break;
+            case 'students':
+                await loadStudents();
+                break;
+        }
+    }
+
+    // Load staff dashboard
+    async function loadDashboard() {
+        try {
+            const response = await fetch('api/dashboard.php');
+            const data = await response.json();
+            
+            if (data.success) {
+                const html = `
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div>
+                                <h3>Assigned Tasks</h3>
+                                <p>${data.data.today_tasks}</p>
+                            </div>
+                            <div class="stat-icon" style="background: #3498db20; color: #3498db;">
+                                <i class="fas fa-tasks"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">My Tasks</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Task ID</th>
+                                        <th>Type</th>
+                                        <th>Description</th>
+                                        <th>Priority</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.data.assigned_tasks.map(task => `
+                                        <tr>
+                                            <td>#${task.id}</td>
+                                            <td>${task.complaint_type}</td>
+                                            <td>${task.description.substring(0, 50)}...</td>
+                                            <td><span class="badge badge-${task.priority}">${task.priority}</span></td>
+                                            <td><span class="badge badge-${task.status}">${task.status}</span></td>
+                                            <td>
+                                                <button class="btn btn-sm btn-primary" onclick="updateTaskStatus(${task.id})">
+                                                    Update Status
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('pageContent').innerHTML = html;
+            }
+        } catch (error) {
+            showError('Failed to load dashboard');
+        }
+    }
+
+    // Load tasks page
+    async function loadTasks() {
+        try {
+            const response = await fetch('api/complaints.php?assigned_to=me');
+            const data = await response.json();
+            
+            if (data.success) {
+                const html = `
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">My Assigned Tasks</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Student</th>
+                                        <th>Type</th>
+                                        <th>Description</th>
+                                        <th>Priority</th>
+                                        <th>Status</th>
+                                        <th>Assigned Date</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.data.map(task => `
+                                        <tr>
+                                            <td>#${task.id}</td>
+                                            <td>${task.student_name}</td>
+                                            <td>${task.complaint_type}</td>
+                                            <td>${task.description}</td>
+                                            <td><span class="badge badge-${task.priority}">${task.priority}</span></td>
+                                            <td><span class="badge badge-${task.status}">${task.status}</span></td>
+                                            <td>${new Date(task.created_at).toLocaleDateString()}</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-success" onclick="markResolved(${task.id})">
+                                                    Mark Resolved
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('pageContent').innerHTML = html;
+            }
+        } catch (error) {
+            showError('Failed to load tasks');
+        }
+    }
+
+    // Load attendance page
+    async function loadAttendance() {
+        try {
+            const response = await fetch('api/attendance.php?date=' + new Date().toISOString().split('T')[0]);
+            const data = await response.json();
+            
+            if (data.success) {
+                const html = `
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Mess Attendance - ${new Date().toLocaleDateString()}</h3>
+                            <button class="btn btn-primary" onclick="markAllAttendance()">
+                                Mark All Present
+                            </button>
+                        </div>
+                        
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Student ID</th>
+                                        <th>Name</th>
+                                        <th>Room</th>
+                                        <th>Breakfast</th>
+                                        <th>Lunch</th>
+                                        <th>Snacks</th>
+                                        <th>Dinner</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.data.map(student => `
+                                        <tr>
+                                            <td>${student.student_id}</td>
+                                            <td>${student.full_name}</td>
+                                            <td>${student.room_number}</td>
+                                            <td>
+                                                <input type="checkbox" onchange="updateAttendance(${student.id}, 'breakfast', this.checked)" 
+                                                    ${student.breakfast ? 'checked' : ''}>
+                                            </td>
+                                            <td>
+                                                <input type="checkbox" onchange="updateAttendance(${student.id}, 'lunch', this.checked)"
+                                                    ${student.lunch ? 'checked' : ''}>
+                                            </td>
+                                            <td>
+                                                <input type="checkbox" onchange="updateAttendance(${student.id}, 'snacks', this.checked)"
+                                                    ${student.snacks ? 'checked' : ''}>
+                                            </td>
+                                            <td>
+                                                <input type="checkbox" onchange="updateAttendance(${student.id}, 'dinner', this.checked)"
+                                                    ${student.dinner ? 'checked' : ''}>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('pageContent').innerHTML = html;
+            }
+        } catch (error) {
+            showError('Failed to load attendance');
+        }
+    }
+
+    // Load inventory page (simplified for staff)
+    async function loadInventory() {
+        try {
+            const response = await fetch('api/inventory.php');
+            const data = await response.json();
+            
+            if (data.success) {
+                const html = `
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Inventory Status</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Item Name</th>
+                                        <th>Category</th>
+                                        <th>Quantity</th>
+                                        <th>Unit</th>
+                                        <th>Location</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.data.items.map(item => `
+                                        <tr>
+                                            <td>${item.item_name}</td>
+                                            <td>${item.category}</td>
+                                            <td>${item.quantity}</td>
+                                            <td>${item.unit}</td>
+                                            <td>${item.location}</td>
+                                            <td><span class="badge badge-${item.status}">${item.status}</span></td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('pageContent').innerHTML = html;
+            }
+        } catch (error) {
+            showError('Failed to load inventory');
+        }
+    }
+
+    // Load complaints page (for staff)
+    async function loadComplaints() {
+        try {
+            const response = await fetch('api/complaints.php?status=pending');
+            const data = await response.json();
+            
+            if (data.success) {
+                const html = `
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Pending Complaints</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Student</th>
+                                        <th>Type</th>
+                                        <th>Description</th>
+                                        <th>Priority</th>
+                                        <th>Date</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.data.complaints.map(complaint => `
+                                        <tr>
+                                            <td>${complaint.student_name}</td>
+                                            <td>${complaint.complaint_type}</td>
+                                            <td>${complaint.description}</td>
+                                            <td><span class="badge badge-${complaint.priority}">${complaint.priority}</span></td>
+                                            <td>${new Date(complaint.created_at).toLocaleDateString()}</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-primary" onclick="takeComplaint(${complaint.id})">
+                                                    Take This
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('pageContent').innerHTML = html;
+            }
+        } catch (error) {
+            showError('Failed to load complaints');
+        }
+    }
+
+    // Load students page (for staff)
+    async function loadStudents() {
+        try {
+            const response = await fetch('api/students.php');
+            const data = await response.json();
+            
+            if (data.success) {
+                const html = `
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Student Directory</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Student ID</th>
+                                        <th>Name</th>
+                                        <th>Course</th>
+                                        <th>Year</th>
+                                        <th>Phone</th>
+                                        <th>Room</th>
+                                        <th>Hostel</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.data.map(student => `
+                                        <tr>
+                                            <td>${student.student_id}</td>
+                                            <td>${student.full_name}</td>
+                                            <td>${student.course}</td>
+                                           
