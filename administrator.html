@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Hostel Management System</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <i class="fas fa-building" style="font-size: 32px; margin-bottom: 10px;"></i>
+                <h3>HMS Admin</h3>
+            </div>
+            <ul class="sidebar-menu">
+                <li class="active"><a href="#dashboard" onclick="loadPage('dashboard')"><i class="fas fa-home"></i> Dashboard</a></li>
+                <li><a href="#hostels" onclick="loadPage('hostels')"><i class="fas fa-hotel"></i> Hostels</a></li>
+                <li><a href="#rooms" onclick="loadPage('rooms')"><i class="fas fa-door-open"></i> Rooms</a></li>
+                <li><a href="#students" onclick="loadPage('students')"><i class="fas fa-user-graduate"></i> Students</a></li>
+                <li><a href="#staff" onclick="loadPage('staff')"><i class="fas fa-users"></i> Staff</a></li>
+                <li><a href="#allocations" onclick="loadPage('allocations')"><i class="fas fa-bed"></i> Allocations</a></li>
+                <li><a href="#mess" onclick="loadPage('mess')"><i class="fas fa-utensils"></i> Mess</a></li>
+                <li><a href="#payments" onclick="loadPage('payments')"><i class="fas fa-credit-card"></i> Payments</a></li>
+                <li><a href="#complaints" onclick="loadPage('complaints')"><i class="fas fa-exclamation-triangle"></i> Complaints</a></li>
+                <li><a href="#inventory" onclick="loadPage('inventory')"><i class="fas fa-boxes"></i> Inventory</a></li>
+                <li><a href="#notices" onclick="loadPage('notices')"><i class="fas fa-bullhorn"></i> Notices</a></li>
+                <li><a href="#reports" onclick="loadPage('reports')"><i class="fas fa-chart-bar"></i> Reports</a></li>
+                <li><a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+            </ul>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="top-nav">
+                <div class="menu-toggle" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </div>
+                <div class="user-info">
+                    <span>Welcome, <span id="userName"></span></span>
+                    <div class="user-avatar" id="userAvatar"></div>
+                </div>
+            </div>
+
+            <div id="pageContent">
+                <!-- Content will be loaded here -->
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logout Modal -->
+    <div id="logoutModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Confirm Logout</h3>
+                <span class="close" onclick="closeModal('logoutModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to logout?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('logoutModal')">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmLogout()">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // Check authentication
+    async function checkAuth() {
+        const response = await fetch('api/dashboard.php');
+        const data = await response.json();
+        
+        if (!data.success || data.data.role !== 'admin') {
+            window.location.href = 'index.html';
+        } else {
+            document.getElementById('userName').textContent = data.data.user;
+            document.getElementById('userAvatar').textContent = data.data.user.charAt(0);
+            loadPage('dashboard');
+        }
+    }
+
+    // Load page content
+    async function loadPage(page) {
+        const content = document.getElementById('pageContent');
+        content.innerHTML = '<div class="spinner"></div>';
+        
+        // Update active menu
+        document.querySelectorAll('.sidebar-menu li').forEach(li => li.classList.remove('active'));
+        event?.target?.closest('li')?.classList.add('active');
+        
+        switch(page) {
+            case 'dashboard':
+                await loadDashboard();
+                break;
+            case 'hostels':
+                await loadHostels();
+                break;
+            case 'rooms':
+                await loadRooms();
+                break;
+            case 'students':
+                await loadStudents();
+                break;
+            case 'staff':
+                await loadStaff();
+                break;
+            case 'allocations':
+                await loadAllocations();
+                break;
+            case 'mess':
+                await loadMess();
+                break;
+            case 'payments':
+                await loadPayments();
+                break;
+            case 'complaints':
+                await loadComplaints();
+                break;
+            case 'inventory':
+                await loadInventory();
+                break;
+            case 'notices':
+                await loadNotices();
+                break;
+            case 'reports':
+                await loadReports();
+                break;
+        }
+    }
+
+    // Load dashboard
+    async function loadDashboard() {
+        try {
+            const response = await fetch('api/dashboard.php');
+            const data = await response.json();
+            
+            if (data.success) {
+                const stats = data.data.stats;
+                const html = `
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div>
+                                <h3>Total Students</h3>
+                                <p>${stats.total_students}</p>
+                            </div>
+                            <div class="stat-icon" style="background: #3498db20; color: #3498db;">
+                                <i class="fas fa-user-graduate"></i>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div>
+                                <h3>Total Staff</h3>
+                                <p>${stats.total_staff}</p>
+                            </div>
+                            <div class="stat-icon" style="background: #27ae6020; color: #27ae60;">
+                                <i class="fas fa-users"></i>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div>
+                                <h3>Total Hostels</h3>
+                                <p>${stats.total_hostels}</p>
+                            </div>
+                            <div class="stat-icon" style="background: #f39c1220; color: #f39c12;">
+                                <i class="fas fa-hotel"></i>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div>
+                                <h3>Occupancy Rate</h3>
+                                <p>${stats.occupancy_rate}%</p>
+                            </div>
+                            <div class="stat-icon" style="background: #e74c3c20; color: #e74c3c;">
+                                <i class="fas fa-chart-pie"></i>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div>
+                                <h3>Pending Complaints</h3>
+                                <p>${stats.pending_complaints}</p>
+                            </div>
+                            <div class="stat-icon" style="background: #e67e2220; color: #e67e22;">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div>
+                                <h3>Today's Mess</h3>
+                                <p>${stats.today_mess}</p>
+                            </div>
+                            <div class="stat-icon" style="background: #2ecc7120; color: #2ecc71;">
+                                <i class="fas fa-utensils"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Recent Payments</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Student</th>
+                                        <th>Amount</th>
+                                        <th>Type</th>
+                                        <th>Date</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.data.recent_payments.map(payment => `
+                                        <tr>
+                                            <td>${payment.full_name} (${payment.student_id})</td>
+                                            <td>₹${payment.amount}</td>
+                                            <td>${payment.payment_type}</td>
+                                            <td>${payment.payment_date}</td>
+                                            <td><span class="badge badge-${payment.status === 'paid' ? 'success' : 'warning'}">${payment.status}</span></td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Recent Complaints</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Student</th>
+                                        <th>Type</th>
+                                        <th>Priority</th>
+                                        <th>Status</th>
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.data.recent_complaints.map(complaint => `
+                                        <tr>
+                                            <td>${complaint.full_name} (${complaint.student_id})</td>
+                                            <td>${complaint.complaint_type}</td>
+                                            <td><span class="badge badge-${complaint.priority}">${complaint.priority}</span></td>
+                                            <td><span class="badge badge-${complaint.status}">${complaint.status}</span></td>
+                                            <td>${new Date(complaint.created_at).toLocaleDateString()}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('pageContent').innerHTML = html;
+            }
+        } catch (error) {
+            showError('Failed to load dashboard');
+        }
+    }
+
+    // Load hostels page
+    async function loadHostels() {
+        try {
+            const response = await fetch('api/hostels.php');
+            const data = await response.json();
+            
+            if (data.success) {
+                const html = `
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Manage Hostels</h3>
+                            <button class="btn btn-primary" onclick="showAddHostelModal()">
+                                <i class="fas fa-plus"></i> Add Hostel
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Name</th>
+                                        <th>Type</th>
+                                        <th>Total Rooms</th>
+                                        <th>Warden</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.data.map(hostel => `
+                                        <tr>
+                                            <td>${hostel.id}</td>
+                                            <td>${hostel.name}</td>
+                                            <td>${hostel.type}</td>
+                                            <td>${hostel.total_rooms}</td>
+                                            <td>${hostel.warden_name}</td>
+                                            <td><span class="badge badge-${hostel.status}">${hostel.status}</span></td>
+                                            <td>
+                                                <button class="btn btn-sm btn-primary" onclick="editHostel(${hostel.id})">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-danger" onclick="deleteHostel(${hostel.id})">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('pageContent').innerHTML = html;
+            }
+        } catch (error) {
+            showError('Failed to load hostels');
+        }
+    }
+
+    // Load students page
+    async function loadStudents() {
+        try {
+            const response = await fetch('api/students.php');
+            const data = await response.json();
+            
+            if (data.success) {
+                const html = `
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Manage Students</h3>
+                            <button class="btn btn-primary" onclick="showAddStudentModal()">
+                                <i class="fas fa-plus"></i> Add Student
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Student ID</th>
+                                        <th>Name</th>
+                                        <th>Course</th>
+                                        <th>Year</th>
+                                        <th>Phone</th>
+                                        <th>Room</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.data.map(student => `
+                                        <tr>
+                                            <td>${student.student_id}</td>
+                                            <td>${student.full_name}</td>
+                                            <td>${student.course}</td>
+                                            <td>${student.year}</td>
+                                            <td>${student.phone}</td>
+                                            <td>${student.room_number || 'Not Allocated'}</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-primary" onclick="editStudent(${student.id})">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-info" onclick="viewStudent(${student.id})">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-danger" onclick="deleteStudent(${student.id})">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('pageContent').innerHTML = html;
+            }
+        } catch (error) {
+            showError('Failed to load students');
+        }
+    }
+
+    // Load rooms page
+    async function loadRooms() {
+        try {
+            const response = await fetch('api/rooms.php');
+            const data = await response.json();
+            
+            if (data.success) {
+                const html = `
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Manage Rooms</h3>
+                            <button class="btn btn-primary" onclick="showAddRoomModal()">
+                                <i class="fas fa-plus"></i> Add Room
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Hostel</th>
+                                        <th>Room No</th>
+                                        <th>Floor</th>
+                                        <th>Type</th>
+                                        <th>Capacity</th>
+                                        <th>Occupied</th>
+                                        <th>Rent</th>
+                                        <th>
