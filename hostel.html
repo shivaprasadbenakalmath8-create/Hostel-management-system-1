@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hostel Management - HMS</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <i class="fas fa-building"></i>
+                <h3>HMS Admin</h3>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="administrator.html"><i class="fas fa-home"></i> Dashboard</a></li>
+                <li class="active"><a href="hostel.html"><i class="fas fa-hotel"></i> Hostels</a></li>
+                <li><a href="mess.html"><i class="fas fa-utensils"></i> Mess</a></li>
+                <li><a href="payment.html"><i class="fas fa-credit-card"></i> Payments</a></li>
+                <li><a href="reports.html"><i class="fas fa-chart-bar"></i> Reports</a></li>
+                <li><a href="profile.html"><i class="fas fa-user"></i> Profile</a></li>
+                <li><a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+            </ul>
+        </div>
+
+        <div class="main-content">
+            <div class="top-nav">
+                <div class="menu-toggle" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </div>
+                <div class="user-info">
+                    <span>Welcome, <span id="userName"></span></span>
+                    <div class="user-avatar" id="userAvatar"></div>
+                </div>
+            </div>
+
+            <div id="pageContent">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Hostel Modal -->
+    <div id="hostelModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Add Hostel</h3>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="hostelForm">
+                    <input type="hidden" id="hostel_id" name="id">
+                    <div class="form-group">
+                        <label>Hostel Name</label>
+                        <input type="text" id="name" name="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Type</label>
+                        <select id="type" name="type" required>
+                            <option value="boys">Boys Hostel</option>
+                            <option value="girls">Girls Hostel</option>
+                            <option value="co-ed">Co-ed Hostel</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Total Rooms</label>
+                        <input type="number" id="total_rooms" name="total_rooms" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Warden Name</label>
+                        <input type="text" id="warden_name" name="warden_name">
+                    </div>
+                    <div class="form-group">
+                        <label>Warden Phone</label>
+                        <input type="text" id="warden_phone" name="warden_phone">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Save Hostel</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    async function checkAuth() {
+        const response = await fetch('api/dashboard.php');
+        const data = await response.json();
+        if (!data.success) window.location.href = 'index.html';
+        else {
+            document.getElementById('userName').textContent = data.data.user;
+            document.getElementById('userAvatar').textContent = data.data.user.charAt(0);
+            loadHostels();
+        }
+    }
+
+    async function loadHostels() {
+        const response = await fetch('api/hostels.php');
+        const data = await response.json();
+        
+        if (data.success) {
+            const html = `
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-hotel"></i> Hostel Management</h3>
+                        <button class="btn btn-primary" onclick="showAddModal()">
+                            <i class="fas fa-plus"></i> Add Hostel
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Type</th>
+                                    <th>Rooms</th>
+                                    <th>Warden</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.data.map(hostel => `
+                                    <tr>
+                                        <td>${hostel.id}</td>
+                                        <td><strong>${hostel.name}</strong></td>
+                                        <td><span class="badge badge-info">${hostel.type}</span></td>
+                                        <td>${hostel.total_rooms}</td>
+                                        <td>${hostel.warden_name || '-'}</td>
+                                        <td><span class="badge badge-${hostel.status}">${hostel.status}</span></td>
+                                        <td>
+                                            <button class="btn btn-sm btn-primary" onclick="editHostel(${hostel.id})">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-danger" onclick="deleteHostel(${hostel.id})">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            document.getElementById('pageContent').innerHTML = html;
+        }
+    }
+
+    function showAddModal() {
+        document.getElementById('modalTitle').textContent = 'Add Hostel';
+        document.getElementById('hostelForm').reset();
+        document.getElementById('hostel_id').value = '';
+        document.getElementById('hostelModal').style.display = 'block';
+    }
+
+    async function editHostel(id) {
+        const response = await fetch(`api/hostels.php?id=${id}`);
+        const data = await response.json();
+        if (data.success) {
+            const h = data.data;
+            document.getElementById('modalTitle').textContent = 'Edit Hostel';
+            document.getElementById('hostel_id').value = h.id;
+            document.getElementById('name').value = h.name;
+            document.getElementById('type').value = h.type;
+            document.getElementById('total_rooms').value = h.total_rooms;
+            document.getElementById('warden_name').value = h.warden_name;
+            document.getElementById('warden_phone').value = h.warden_phone;
+            document.getElementById('hostelModal').style.display = 'block';
+        }
+    }
+
+    async function deleteHostel(id) {
+        if (confirm('Delete this hostel?')) {
+            const response = await fetch(`api/hostels.php?id=${id}`, { method: 'DELETE' });
+            const data = await response.json();
+            if (data.success) {
+                alert('Hostel deleted');
+                loadHostels();
+            } else alert(data.message);
+        }
+    }
+
+    document.getElementById('hostelForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const id = document.getElementById('hostel_id').value;
+        const url = id ? `api/hostels.php?id=${id}` : 'api/hostels.php';
+        const method = id ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, { method, body: formData });
+        const data = await response.json();
+        if (data.success) {
+            alert(id ? 'Hostel updated' : 'Hostel added');
+            closeModal();
+            loadHostels();
+        } else alert(data.message);
+    });
+
+    function closeModal() {
+        document.getElementById('hostelModal').style.display = 'none';
+    }
+
+    function logout() {
+        if (confirm('Logout?')) {
+            fetch('api/login.php?logout=true').then(() => window.location.href = 'index.html');
+        }
+    }
+
+    function toggleSidebar() {
+        document.querySelector('.sidebar').classList.toggle('active');
+    }
+
+    checkAuth();
+    </script>
+</body>
+</html>
