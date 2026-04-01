@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mess Management - HMS</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <i class="fas fa-utensils"></i>
+                <h3>HMS Admin</h3>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="administrator.html"><i class="fas fa-home"></i> Dashboard</a></li>
+                <li><a href="hostel.html"><i class="fas fa-hotel"></i> Hostels</a></li>
+                <li class="active"><a href="mess.html"><i class="fas fa-utensils"></i> Mess</a></li>
+                <li><a href="payment.html"><i class="fas fa-credit-card"></i> Payments</a></li>
+                <li><a href="reports.html"><i class="fas fa-chart-bar"></i> Reports</a></li>
+                <li><a href="profile.html"><i class="fas fa-user"></i> Profile</a></li>
+                <li><a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+            </ul>
+        </div>
+
+        <div class="main-content">
+            <div class="top-nav">
+                <div class="menu-toggle" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </div>
+                <div class="user-info">
+                    <span>Welcome, <span id="userName"></span></span>
+                    <div class="user-avatar" id="userAvatar"></div>
+                </div>
+            </div>
+
+            <div id="pageContent">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Menu Modal -->
+    <div id="menuModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Menu - <span id="menuDay"></span></h3>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="menuForm">
+                    <input type="hidden" id="menu_day" name="day">
+                    <div class="form-group">
+                        <label>Breakfast</label>
+                        <textarea id="breakfast" name="breakfast" rows="2" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Lunch</label>
+                        <textarea id="lunch" name="lunch" rows="2" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Snacks</label>
+                        <textarea id="snacks" name="snacks" rows="2" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Dinner</label>
+                        <textarea id="dinner" name="dinner" rows="2" required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Save Menu</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    async function checkAuth() {
+        const response = await fetch('api/dashboard.php');
+        const data = await response.json();
+        if (!data.success) window.location.href = 'index.html';
+        else {
+            document.getElementById('userName').textContent = data.data.user;
+            document.getElementById('userAvatar').textContent = data.data.user.charAt(0);
+            loadMess();
+        }
+    }
+
+    async function loadMess() {
+        const response = await fetch('api/mess.php');
+        const data = await response.json();
+        
+        if (data.success) {
+            const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+            const today = new Date().toLocaleDateString('en-us', { weekday: 'long' }).toLowerCase();
+            
+            const html = `
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-utensils"></i> Weekly Mess Menu</h3>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; padding: 20px;">
+                        ${data.data.map(menu => `
+                            <div class="card" style="${menu.day_of_week === today ? 'border: 2px solid #27ae60;' : ''}">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <h4 style="text-transform: capitalize;">${menu.day_of_week}</h4>
+                                    <button class="btn btn-sm btn-primary" onclick="editMenu('${menu.day_of_week}')">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                </div>
+                                <hr>
+                                <p><strong>🍳 Breakfast:</strong> ${menu.breakfast}</p>
+                                <p><strong>🍛 Lunch:</strong> ${menu.lunch}</p>
+                                <p><strong>🍪 Snacks:</strong> ${menu.snacks}</p>
+                                <p><strong>🍲 Dinner:</strong> ${menu.dinner}</p>
+                                ${menu.special_item ? `<p><strong>⭐ Special:</strong> ${menu.special_item}</p>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <div class="card" style="margin-top: 20px;">
+                        <div class="card-header">
+                            <h3>📅 Today's Attendance</h3>
+                            <button class="btn btn-primary" onclick="markAttendance()">
+                                <i class="fas fa-check"></i> Mark Attendance
+                            </button>
+                        </div>
+                        <div id="attendanceList" style="padding: 20px;">
+                            <div class="spinner"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('pageContent').innerHTML = html;
+            loadTodayAttendance();
+        }
+    }
+
+    async function loadTodayAttendance() {
+        const today = new Date().toISOString().split('T')[0];
+        const response = await fetch(`api/mess.php?action=attendance&date=${today}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const html = `
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Breakfast</th>
+                                <th>Lunch</th>
+                                <th>Snacks</th>
+                                <th>Dinner</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.data.map(s => `
+                                <tr>
+                                    <td>${s.full_name}</td>
+                                    <td><input type="checkbox" onchange="updateAttendance(${s.id}, 'breakfast', this.checked)" ${s.breakfast ? 'checked' : ''}></td>
+                                    <td><input type="checkbox" onchange="updateAttendance(${s.id}, 'lunch', this.checked)" ${s.lunch ? 'checked' : ''}></td>
+                                    <td><input type="checkbox" onchange="updateAttendance(${s.id}, 'snacks', this.checked)" ${s.snacks ? 'checked' : ''}></td>
+                                    <td><input type="checkbox" onchange="updateAttendance(${s.id}, 'dinner', this.checked)" ${s.dinner ? 'checked' : ''}></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            document.getElementById('attendanceList').innerHTML = html;
+        }
+    }
+
+    async function updateAttendance(studentId, meal, checked) {
+        const date = new Date().toISOString().split('T')[0];
+        const response = await fetch('api/mess.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'attendance', student_id: studentId, meal, date, status: checked ? 'present' : 'absent' })
+        });
+        const data = await response.json();
+        if (!data.success) alert('Failed to update');
+    }
+
+    async function editMenu(day) {
+        const response = await fetch(`api/mess.php?day=${day}`);
+        const data = await response.json();
+        if (data.success) {
+            const m = data.data;
+            document.getElementById('menuDay').textContent = day;
+            document.getElementById('menu_day').value = day;
+            document.getElementById('breakfast').value = m.breakfast;
+            document.getElementById('lunch').value = m.lunch;
+            document.getElementById('snacks').value = m.snacks;
+            document.getElementById('dinner').value = m.dinner;
+            document.getElementById('menuModal').style.display = 'block';
+        }
+    }
+
+    document.getElementById('menuForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const response = await fetch('api/mess.php', { method: 'PUT', body: formData });
+        const data = await response.json();
+        if (data.success) {
+            alert('Menu updated');
+            closeModal();
+            loadMess();
+        } else alert(data.message);
+    });
+
+    function markAttendance() {
+        loadTodayAttendance();
+        alert('Click checkboxes to mark attendance');
+    }
+
+    function closeModal() {
+        document.getElementById('menuModal').style.display = 'none';
+    }
+
+    function logout() {
+        if (confirm('Logout?')) {
+            fetch('api/login.php?logout=true').then(() => window.location.href = 'index.html');
+        }
+    }
+
+    function toggleSidebar() {
+        document.querySelector('.sidebar').classList.toggle('active');
+    }
+
+    checkAuth();
+    </script>
+</body>
+</html>
