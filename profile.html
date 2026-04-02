@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile - Hostel Management System</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <i class="fas fa-user-circle"></i>
+                <h3>My Account</h3>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="administrator.html"><i class="fas fa-home"></i> Dashboard</a></li>
+                <li><a href="hostel.html"><i class="fas fa-hotel"></i> Hostels</a></li>
+                <li><a href="mess.html"><i class="fas fa-utensils"></i> Mess</a></li>
+                <li><a href="payment.html"><i class="fas fa-credit-card"></i> Payments</a></li>
+                <li><a href="reports.html"><i class="fas fa-chart-bar"></i> Reports</a></li>
+                <li class="active"><a href="profile.html"><i class="fas fa-user"></i> Profile</a></li>
+                <li><a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+            </ul>
+        </div>
+
+        <div class="main-content">
+            <div class="top-nav">
+                <div class="menu-toggle" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </div>
+                <div class="user-info">
+                    <span>Welcome, <span id="userName"></span></span>
+                    <div class="user-avatar" id="userAvatar"></div>
+                </div>
+            </div>
+
+            <div id="pageContent"></div>
+        </div>
+    </div>
+
+    <!-- Edit Profile Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>Edit Profile</h3>
+                <span class="close" onclick="closeModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="profileForm">
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <input type="text" id="full_name" name="full_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Phone</label>
+                        <input type="text" id="phone" name="phone">
+                    </div>
+                    <div class="form-group">
+                        <label>Current Password</label>
+                        <input type="password" id="current_password" name="current_password">
+                    </div>
+                    <div class="form-group">
+                        <label>New Password</label>
+                        <input type="password" id="new_password" name="new_password">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Update Profile</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    async function checkAuth() {
+        const response = await fetch('api/dashboard.php');
+        const data = await response.json();
+        if (!data.success) window.location.href = 'index.html';
+        else {
+            document.getElementById('userName').textContent = data.data.user;
+            document.getElementById('userAvatar').textContent = data.data.user.charAt(0);
+            loadProfile();
+        }
+    }
+
+    async function loadProfile() {
+        const response = await fetch('api/profile.php');
+        const data = await response.json();
+        
+        if (data.success) {
+            const p = data.data;
+            const html = `
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-user-circle"></i> My Profile</h3>
+                        <button class="btn btn-primary" onclick="showEditModal()">
+                            <i class="fas fa-edit"></i> Edit Profile
+                        </button>
+                    </div>
+                    <div style="text-align: center; padding: 30px;">
+                        <div class="user-avatar" style="width: 120px; height: 120px; font-size: 48px; margin: 0 auto;">
+                            ${p.full_name.charAt(0)}
+                        </div>
+                        <h2 style="margin-top: 15px;">${p.full_name}</h2>
+                        <p><span class="badge badge-primary">${p.role.toUpperCase()}</span></p>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; padding: 20px;">
+                        <div><strong>Username:</strong><br>${p.username}</div>
+                        <div><strong>Email:</strong><br>${p.email}</div>
+                        <div><strong>Phone:</strong><br>${p.phone || 'Not provided'}</div>
+                        <div><strong>Member Since:</strong><br>${new Date(p.created_at).toLocaleDateString()}</div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('pageContent').innerHTML = html;
+        }
+    }
+
+    async function showEditModal() {
+        const response = await fetch('api/profile.php');
+        const data = await response.json();
+        if (data.success) {
+            document.getElementById('full_name').value = data.data.full_name;
+            document.getElementById('email').value = data.data.email;
+            document.getElementById('phone').value = data.data.phone || '';
+            document.getElementById('editModal').style.display = 'block';
+        }
+    }
+
+    document.getElementById('profileForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const response = await fetch('api/profile.php', { method: 'PUT', body: formData });
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('Profile updated successfully');
+            closeModal();
+            loadProfile();
+        } else {
+            alert(data.message);
+        }
+    });
+
+    function closeModal() {
+        document.getElementById('editModal').style.display = 'none';
+    }
+
+    function logout() {
+        if (confirm('Logout?')) {
+            fetch('api/login.php?logout=true').then(() => window.location.href = 'index.html');
+        }
+    }
+
+    function toggleSidebar() {
+        document.querySelector('.sidebar').classList.toggle('active');
+    }
+
+    checkAuth();
+    </script>
+</body>
+  </html>
