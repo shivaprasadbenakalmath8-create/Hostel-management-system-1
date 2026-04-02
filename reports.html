@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports - Hostel Management System</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <i class="fas fa-chart-bar"></i>
+                <h3>Reports</h3>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="administrator.html"><i class="fas fa-home"></i> Dashboard</a></li>
+                <li><a href="hostel.html"><i class="fas fa-hotel"></i> Hostels</a></li>
+                <li><a href="mess.html"><i class="fas fa-utensils"></i> Mess</a></li>
+                <li><a href="payment.html"><i class="fas fa-credit-card"></i> Payments</a></li>
+                <li class="active"><a href="reports.html"><i class="fas fa-chart-bar"></i> Reports</a></li>
+                <li><a href="profile.html"><i class="fas fa-user"></i> Profile</a></li>
+                <li><a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+            </ul>
+        </div>
+
+        <div class="main-content">
+            <div class="top-nav">
+                <div class="menu-toggle" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </div>
+                <div class="user-info">
+                    <span>Welcome, <span id="userName"></span></span>
+                    <div class="user-avatar" id="userAvatar"></div>
+                </div>
+            </div>
+
+            <div id="pageContent"></div>
+        </div>
+    </div>
+
+    <script>
+    async function checkAuth() {
+        const response = await fetch('api/dashboard.php');
+        const data = await response.json();
+        if (!data.success) window.location.href = 'index.html';
+        else {
+            document.getElementById('userName').textContent = data.data.user;
+            document.getElementById('userAvatar').textContent = data.data.user.charAt(0);
+            loadReports();
+        }
+    }
+
+    function loadReports() {
+        const html = `
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-chart-line"></i> Generate Reports</h3>
+                </div>
+                <div style="padding: 20px;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px;">
+                        <div class="form-group">
+                            <label>Report Type</label>
+                            <select id="reportType" class="form-control">
+                                <option value="students">📊 Student Report</option>
+                                <option value="payments">💰 Payment Report</option>
+                                <option value="attendance">🍽️ Attendance Report</option>
+                                <option value="complaints">⚠️ Complaints Report</option>
+                                <option value="rooms">🏠 Room Occupancy</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>From Date</label>
+                            <input type="date" id="fromDate" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label>To Date</label>
+                            <input type="date" id="toDate" class="form-control">
+                        </div>
+                        <div>
+                            <button class="btn btn-primary" onclick="generateReport()" style="margin-top: 32px;">
+                                <i class="fas fa-download"></i> Generate
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="reportResult">
+                        <div style="text-align: center; padding: 50px; color: #999;">
+                            <i class="fas fa-file-alt" style="font-size: 48px;"></i>
+                            <p>Select report type and click Generate</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById('pageContent').innerHTML = html;
+        
+        // Set default dates
+        const today = new Date().toISOString().split('T')[0];
+        const lastMonth = new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0];
+        document.getElementById('fromDate').value = lastMonth;
+        document.getElementById('toDate').value = today;
+    }
+
+    async function generateReport() {
+        const type = document.getElementById('reportType').value;
+        const from = document.getElementById('fromDate').value;
+        const to = document.getElementById('toDate').value;
+        
+        document.getElementById('reportResult').innerHTML = '<div style="text-align: center;"><div class="spinner"></div></div>';
+        
+        const response = await fetch(`api/reports.php?type=${type}&from=${from}&to=${to}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            let html = '';
+            if (type === 'students') html = renderStudentReport(data.data);
+            else if (type === 'payments') html = renderPaymentReport(data.data, data.summary);
+            else if (type === 'attendance') html = renderAttendanceReport(data.data);
+            else if (type === 'complaints') html = renderComplaintsReport(data.data);
+            else if (type === 'rooms') html = renderRoomReport(data.data);
+            
+            document.getElementById('reportResult').innerHTML = html;
+        } else {
+            document.getElementById('reportResult').innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
+        }
+    }
+
+    function renderStudentReport(students) {
+        return `
+            <div class="card">
+                <div class="card-header">
+                    <h4>Student Report (${students.length} students)</h4>
+                    <button class="btn btn-success btn-sm" onclick="window.print()">
+                        <i class="fas fa-print"></i> Print
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th><th>Name</th><th>Course</th><th>Year</th><th>Phone</th><th>Room</th>
+                            </thead>
+                            <tbody>
+                                ${students.map(s => `
+                                    <tr>
+                                        <td>${s.student_id}</td>
+                                        <td>${s.full_name}</td>
+                                        <td>${s.course || '-'}</td>
+                                        <td>${s.year || '-'}</td>
+                                        <td>${s.phone || '-'}</td>
+                                        <td>${s.room_number || 'Not Allocated'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+    }
+
+    function renderPaymentReport(payments, summary) {
+        return `
+            <div class="card">
+                <div class="card-header">
+                    <h4>Payment Report</h4>
+                    <button class="btn btn-success btn-sm" onclick="window.print()">Print</button>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px;">
+                    <div class="stat-card"><h4>Total</h4><p style="font-size: 20px;">₹${summary.total}</p></div>
+                    <div class="stat-card"><h4>Paid</h4><p style="font-size: 20px; color: green;">₹${summary.paid}</p></div>
+                    <div class="stat-card"><h4>Pending</h4><p style="font-size: 20px; color: red;">₹${summary.pending}</p></div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead><tr><th>Student</th><th>Type</th><th>Amount</th><th>Date</th><th>Status</th></tr></thead>
+                        <tbody>
+                            ${payments.map(p => `
+                                <tr><td>${p.full_name}</td><td>${p.payment_type}</td><td>₹${p.amount}</td><td>${p.payment_date}</td>
+                                <td><span class="badge badge-${p.status}">${p.status}</span></td></tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderAttendanceReport(attendance) {
+        return `
+            <div class="card">
+                <div class="card-header"><h4>Attendance Report</h4><button class="btn btn-success btn-sm" onclick="window.print()">Print</button></div>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead><tr><th>Student</th><th>Breakfast</th><th>Lunch</th><th>Snacks</th><th>Dinner</th></tr></thead>
+                        <tbody>
+                            ${attendance.map(a => `
+                                <tr>
+                                    <td>${a.full_name}</td>
+                                    <td>${a.breakfast_count || 0}</td>
+                                    <td>${a.lunch_count || 0}</td>
+                                    <td>${a.snacks_count || 0}</td>
+                                    <td>${a.dinner_count || 0}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderComplaintsReport(complaints) {
+        return `
+            <div class="card">
+                <div class="card-header"><h4>Complaints Report</h4><button class="btn btn-success btn-sm" onclick="window.print()">Print</button></div>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead><tr><th>Student</th><th>Type</th><th>Description</th><th>Status</th><th>Date</th></tr></thead>
+                        <tbody>
+                            ${complaints.map(c => `
+                                <tr>
+                                    <td>${c.full_name}</td>
+                                    <td>${c.complaint_type}</td>
+                                    <td>${c.description.substring(0, 50)}...</td>
+                                    <td><span class="badge badge-${c.status}">${c.status}</span></td>
+                                    <td>${new Date(c.created_at).toLocaleDateString()}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderRoomReport(rooms) {
+        return `
+            <div class="card">
+                <div class="card-header"><h4>Room Occupancy Report</h4><button class="btn btn-success btn-sm" onclick="window.print()">Print</button></div>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead><tr><th>Hostel</th><th>Room No</th><th>Type</th><th>Capacity</th><th>Occupied</th><th>Vacant</th></tr></thead>
+                        <tbody>
+                            ${rooms.map(r => `
+                                <tr>
+                                    <td>${r.hostel_name}</td>
+                                    <td>${r.room_number}</td>
+                                    <td>${r.room_type}</td>
+                                    <td>${r.capacity}</td>
+                                    <td>${r.occupied}</td>
+                                    <td>${r.capacity - r.occupied}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+
+    function logout() {
+        if (confirm('Logout?')) {
+            fetch('api/login.php?logout=true').then(() => window.location.href = 'index.html');
+        }
+    }
+
+    function toggleSidebar() {
+        document.querySelector('.sidebar').classList.toggle('active');
+    }
+
+    checkAuth();
+    </script>
+</body>
+</html>
