@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Room Allocations - Hostel Management System</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard">
+        <div class="sidebar"><div class="sidebar-header"><i class="fas fa-bed"></i><h3>HMS Admin</h3></div>
+        <ul class="sidebar-menu"><li><a href="administrator.html"><i class="fas fa-home"></i> Dashboard</a></li><li><a href="hostel.html"><i class="fas fa-hotel"></i> Hostels</a></li><li><a href="rooms.html"><i class="fas fa-door-open"></i> Rooms</a></li><li><a href="students.html"><i class="fas fa-user-graduate"></i> Students</a></li><li><a href="staff.html"><i class="fas fa-users"></i> Staff</a></li><li class="active"><a href="allocations.html"><i class="fas fa-bed"></i> Allocations</a></li><li><a href="mess.html"><i class="fas fa-utensils"></i> Mess</a></li><li><a href="payment.html"><i class="fas fa-credit-card"></i> Payments</a></li><li><a href="reports.html"><i class="fas fa-chart-bar"></i> Reports</a></li><li><a href="profile.html"><i class="fas fa-user"></i> Profile</a></li><li><a href="#" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a></li></ul></div>
+        <div class="main-content"><div class="top-nav"><div class="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></div><div class="user-info"><span>Welcome, <span id="userName"></span></span><div class="user-avatar" id="userAvatar"></div></div></div><div id="pageContent"></div></div>
+    </div>
+
+    <div id="allocateModal" class="modal"><div class="modal-content"><div class="modal-header"><h3>Allocate Room</h3><span class="close" onclick="closeModal('allocateModal')">&times;</span></div>
+    <div class="modal-body"><form id="allocateForm"><div class="form-group"><label>Student</label><select id="student_id" name="student_id" required></select></div>
+    <div class="form-group"><label>Room</label><select id="room_id" name="room_id" required></select></div>
+    <div class="form-group"><label>Bed Number</label><input type="number" id="bed_number" name="bed_number" required></div>
+    <div class="form-group"><label>Start Date</label><input type="date" id="start_date" name="start_date" required></div>
+    <button type="submit" class="btn btn-primary btn-block">Allocate Room</button></form></div></div></div>
+
+    <script>
+    async function checkAuth(){ const res=await fetch('api/dashboard.php'); const data=await res.json(); if(!data.success||data.data.role!=='admin') window.location.href='index.html'; else{ document.getElementById('userName').textContent=data.data.user; document.getElementById('userAvatar').textContent=data.data.user.charAt(0); loadAllocations(); loadDropdowns(); } }
+    async function loadAllocations(){ const res=await fetch('api/allocations.php'); const data=await res.json(); if(data.success){ const html=`<div class="card"><div class="card-header"><h3><i class="fas fa-bed"></i> Room Allocations</h3><button class="btn btn-primary" onclick="showAllocateModal()"><i class="fas fa-plus"></i> Allocate Room</button></div>
+    <div class="table-responsive"><table class="table"><thead><tr><th>Student</th><th>Hostel</th><th>Room</th><th>Bed No</th><th>Start Date</th><th>End Date</th><th>Status</th><th>Actions</th> </thead><tbody>
+    ${data.data.map(a=>`<tr><td><strong>${a.student_name}</strong><br><small>${a.student_id}</small></td><td>${a.hostel_name}</td><td>${a.room_number}</td><td>${a.bed_number}</td><td>${a.start_date}</td><td>${a.end_date||'-'}</td><td><span class="badge badge-${a.status}">${a.status}</span></td>
+    <td>${a.status==='active'?`<button class="btn btn-sm btn-warning" onclick="deallocate(${a.id})"><i class="fas fa-times"></i> Deallocate</button>`:'-'}</td></tr>`).join('')}
+    </tbody></table></div></div>`; document.getElementById('pageContent').innerHTML=html; } }
+    async function loadDropdowns(){ const students=await fetch('api/students.php'); const sData=await students.json(); if(sData.success){ const sSelect=document.getElementById('student_id'); sSelect.innerHTML='<option value="">Select Student</option>'+sData.data.filter(s=>!s.room_number).map(s=>`<option value="${s.id}">${s.full_name} (${s.student_id})</option>`).join(''); }
+    const rooms=await fetch('api/rooms.php'); const rData=await rooms.json(); if(rData.success){ const rSelect=document.getElementById('room_id'); rSelect.innerHTML='<option value="">Select Room</option>'+rData.data.filter(r=>r.status==='available').map(r=>`<option value="${r.id}">${r.hostel_name} - Room ${r.room_number} (${r.capacity-r.occupied} available)</option>`).join(''); } }
+    function showAllocateModal(){ document.getElementById('allocateForm').reset(); document.getElementById('start_date').value=new Date().toISOString().split('T')[0]; document.getElementById('allocateModal').style.display='block'; }
+    async function deallocate(id){ if(confirm('Deallocate this room?')){ const endDate=new Date().toISOString().split('T')[0]; const res=await fetch(`api/allocations.php?id=${id}`,{method:'PUT',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`end_date=${endDate}`}); const data=await res.json(); if(data.success){ alert('Deallocated'); loadAllocations(); }else alert(data.message); } }
+    document.getElementById('allocateForm').addEventListener('submit',async function(e){ e.preventDefault(); const formData=new FormData(this); const res=await fetch('api/allocations.php',{method:'POST',body:formData}); const data=await res.json(); if(data.success){ alert('Room allocated'); closeModal('allocateModal'); loadAllocations(); loadDropdowns(); }else alert(data.message); });
+    function closeModal(id){ document.getElementById(id).style.display='none'; }
+    function logout(){ if(confirm('Logout?')){ fetch('api/login.php?logout=true').then(()=>window.location.href='index.html'); } }
+    function toggleSidebar(){ document.querySelector('.sidebar').classList.toggle('active'); }
+    checkAuth();
+    </script>
+</body>
+</html>
